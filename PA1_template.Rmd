@@ -1,25 +1,97 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research Project 1"
+author: "nragonese"
+date: "December 10, 2017"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+#packagesused
+library(tidyverse)
+library(ggplot2)
 
-## Loading and preprocessing the data
+#Be sure to set your preferred working directory
+setwd("C:/UserData/OneDrive - Red Ventures/Desktop/Data Science Accelerator/reproducible-research")
+
+# URL with dataset
+dataURL <- "https://github.com/nragonese/RepData_PeerAssessment1/blob/master/activity.zip"
+
+#only download if file doesn't exists
+if(!file.exists("Activity Data")) {
+  dir.create("Activity Data")
+  
+ fp <- "./Activity Data.zip" #File Path for the data
+  
+  download.file(dataURL, fp)
+  unzip(fp,exdir = WD) #function to unzip file
+  file.remove(fp) #Removes the zip file because we've already imported the data
+}
 
 
-
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
+#Read files into R
+ActivityData <- read.csv("activity.csv")
 
 
+```
 
-## Imputing missing values
+### What is the mean total number of steps taken per day?
+10,766 is the mean total number of steps taken per day, 10,765 is the media number of steps taken.
+
+```{r}
+byday <- setNames(aggregate(ActivityData$steps, by= list(date = ActivityData$date), FUN =sum),c("date","steps"))
+
+hist(byday$steps, breaks = 50, col = "red", xlab = "Daily Total Steps", main = "Histogram of Daily Step Totals")
+
+summary(byday$steps)
+```
+
+### What is the average daily activity pattern?
+
+```{r}
+
+byinterval <- setNames(aggregate(ActivityData$steps, by = list(interval = ActivityData$interval), FUN =mean, na.rm = TRUE),c("interval","steps"))
+
+plot(byinterval$steps ~ byinterval$interval, type = "l", xlab = "Interval", ylab = "Steps", main = "Average Steps per Interval")
+
+subset(byinterval,byinterval$steps == max(byinterval$steps))
+
+```
+
+Interval 835 has the most steps on average with about 206.
+
+### Imputing missing values 
 
 
+```{r}
+sum(is.na(ActivityData$steps))
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+There are 2304 missing entries.These missing entries will be replaced with the average of the interval when the missing value occured.
+
+```{r}
+merged <- merge(ActivityData, byinterval, by = "interval")
+
+merged$steps.x[is.na(merged$steps.x)]= merged$steps.y[is.na(merged$steps.x)]
+
+mergedbyday <- setNames(aggregate(merged$steps.x, by= list(date = merged$date), FUN =sum),c("date","steps"))
+
+hist(mergedbyday$steps, breaks = 50, col = "red", xlab = "Daily Total Steps", main = "Histogram of Daily Step Totals")
+
+summary(mergedbyday$steps)
+```
+
+Both the mean and the median remained almost identical, while there was a shift from the 3rd quartile to the 1st quartile.
+
+### Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+
+merged$weekday <- ifelse(weekdays(as.Date(ActivityData$date)) %in% c("Saturday","Sunday"),"weekend","weekday")
+
+mergedbydaytype <- setNames(aggregate(merged$steps.x, by = list(merged$weekday, merged$interval), FUN = mean),c("weekday","interval","steps"))
+
+library(lattice)
+xyplot(steps ~ interval | weekday, mergedbydaytype, type = "l", layout = c(1, 2), 
+    xlab = "Interval", ylab = "Mean Steps")
+```
+
